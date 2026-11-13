@@ -25,7 +25,7 @@ Paper trading only. Never live.
 ## Exit 2
 - The rest runs with no cap.
 
-## Close (3:30 p.m. ET)
+## Close (3:15 p.m. ET)
 - Cancel open orders and sell everything left.
 - Never hold to expiry.
 
@@ -47,6 +47,12 @@ Paper trading only. Never live.
 - If the ask is above $1.00, floor(100 / (ask x 100)) is 0, so no trade is
   made and the row is logged.
 - A partial fill after 2 minutes keeps the filled contracts and cancels the rest.
+- The close runs at 3:15 p.m. ET (moved from 3:30) so it finishes before
+  Alpaca's own same-day-expiry liquidation, which can start around 3:30.
+- The entry is meant for 9:45 a.m. ET. A scheduled start that runs late may
+  still buy until 10:15; the actual run time is written in `notes`.
+- If an order is rejected, the exact response is logged and the run stops.
+  It never switches to another instrument.
 - Each arm sells only its own quantity through its own tagged orders, so if
   both arms hold the same contract, their fills and sales stay separate.
 - Orders are tagged with client_order_id `claude-YYYYMMDD-<step>` and

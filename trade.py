@@ -11,7 +11,7 @@ Commands
   status                       account, clock, today's calendar, open orders, positions
   buy --direction call|put --reason "..."   9:45 a.m. ET entry for both arms
   check                        order states, half-exit fills, live marks
-  close                        3:30 p.m. ET: cancel open orders, sell what's left
+  close                        3:15 p.m. ET: cancel open orders, sell what's left
   report                       totals per arm from trades.csv
 
 Add --dry-run to any command to make no orders (only GET requests are sent,
@@ -53,8 +53,8 @@ FEED = "indicative"              # "opra" returns 403 on this account (no OPRA a
 ARMS = ("claude", "coin")
 ET = ZoneInfo("America/New_York")
 ENTRY_TIME = dt.time(9, 45)
-ENTRY_LATEST = dt.time(10, 0)
-CLOSE_TIME = dt.time(15, 30)
+ENTRY_LATEST = dt.time(10, 15)   # scheduled starts can run late; actual entry time is logged
+CLOSE_TIME = dt.time(15, 15)
 NORMAL_CLOSE = "16:00"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -67,6 +67,18 @@ CSV_COLUMNS = [
 ]
 
 DRY_RUN = False
+SUMMARY = {"did": [], "fills": [], "errors": []}
+
+
+def summary(kind: str, text: str) -> None:
+    SUMMARY[kind].append(text)
+
+
+def print_summary() -> None:
+    print("\nSUMMARY")
+    print("did:    " + ("; ".join(SUMMARY["did"]) or "nothing"))
+    print("fills:  " + ("; ".join(SUMMARY["fills"]) or "none"))
+    print("errors: " + ("; ".join(SUMMARY["errors"]) or "none"))
 
 
 # --------------------------------------------------------------------------
@@ -78,6 +90,10 @@ class AuthStop(Exception):
     def __init__(self, method: str, url: str, status: int, body: str):
         super().__init__(f"HTTP {status} from {method} {url}")
         self.method, self.url, self.status, self.body = method, url, status, body
+
+
+class OrderRejected(Exception):
+    """An order was rejected. Exact response is already logged; stop."""
 
 
 class ApiError(Exception):
@@ -400,6 +416,7 @@ def cmd_buy(args) -> None:
 
     def skip_all(why: str) -> None:
         log(f"BUY skipped: {why}")
+        summary("did", f"buy skipped: {why}")
         for arm in ARMS:
             upsert(rows, {"date": today.isoformat(), "arm": arm, "notes": why})
         save_rows(rows)
@@ -422,13 +439,15 @@ def cmd_buy(args) -> None:
         "claude": (args.direction, args.reason),
         "coin": (coin, "coin flip"),
     }
-    log(f"BUY {today}: claude={args.direction} ({args.reason!r}); coin flip={coin}")
+    log(f"BUY {today} at {now:%H:%M} ET: claude={args.direction} ({args.reason!r}); coin flip={coin}")
+    summary("did", f"buy at {now:%H:%M} ET: claude {args.direction}, coin {coin}")
 
     picks: dict[str, dict] = {}
     cache: dict[str, dict | None] = {}
     for arm in ARMS:
         direction, reason = plan[arm]
-        row = {"date": today.isoformat(), "arm": arm, "direction": direction, "reason": reason, "notes": ""}
+        row = {"date": today.isoformat(), "arm": arm, "direction": direction, "reason": reason,
+               "notes": f"entry run {now:%H:%M} ET"}
         if direction not in cache:
             cache[direction] = pick_contract(today, direction)
         pick = cache[direction]
@@ -465,12 +484,19 @@ def cmd_buy(args) -> None:
 
     # Place both entries, then wait up to 2 minutes for each.
     placed: dict[str, dict] = {}
+    rejected = False
     for arm, p in picks.items():
+        if rejected:
+            add_note(p["row"], "not placed: stopped after an earlier rejection")
+            continue
         try:
             placed[arm] = submit_order(p["symbol"], p["qty"], "buy", cid_for(arm, today, "buy"), p["ask"])
         except ApiError as e:
-            add_note(p["row"], f"buy rejected: {e.body}")
-            log(f"{arm}: buy rejected: {e.body}")
+            # Rules: log the exact rejection and stop. Never switch instruments.
+            rejected = True
+            add_note(p["row"], f"buy rejected HTTP {e.status}: {e.body}")
+            log(f"{arm}: buy REJECTED HTTP {e.status}: {e.body}")
+            summary("errors", f"{arm} buy rejected HTTP {e.status}: {e.body}")
     deadline = time.monotonic() + FILL_WAIT_SECONDS
     pending = set(placed)
     while pending and time.monotonic() < deadline:
@@ -488,7 +514,13 @@ def cmd_buy(args) -> None:
         row = picks[arm]["row"]
         filled = int(D(o.get("filled_qty") or 0))
         if filled == 0:
-            add_note(row, "no fill" if o["status"] != "rejected" else f"rejected: {o.get('status')}")
+            if o["status"] == "rejected":
+                rejected = True
+                add_note(row, "buy rejected after submit (status rejected)")
+                summary("errors", f"{arm} buy order status rejected: {json.dumps(o)}")
+            else:
+                add_note(row, "no fill")
+                summary("fills", f"{arm} no fill")
             row["contracts"] = "0"
             log(f"{arm}: no fill (status {o['status']})")
             continue
@@ -497,6 +529,7 @@ def cmd_buy(args) -> None:
         if filled < picks[arm]["qty"]:
             add_note(row, f"partial fill {filled}/{picks[arm]['qty']}, rest cancelled")
         log(f"{arm}: filled {filled} @ {price}, cost ${row['cost']}")
+        summary("fills", f"{arm} bought {filled} {o['symbol']} @ {price} (${row['cost']})")
         half = filled // 2
         if half < 1:
             add_note(row, "1 contract: no half-exit")
@@ -506,9 +539,12 @@ def cmd_buy(args) -> None:
             submit_order(o["symbol"], half, "sell", cid_for(arm, today, "half"), limit)
             add_note(row, f"half-exit {half} @ {limit} placed")
         except ApiError as e:
-            add_note(row, f"half-exit rejected: {e.body}")
-            log(f"{arm}: half-exit rejected: {e.body}")
+            add_note(row, f"half-exit rejected HTTP {e.status}: {e.body}")
+            log(f"{arm}: half-exit REJECTED HTTP {e.status}: {e.body}")
+            summary("errors", f"{arm} half-exit rejected HTTP {e.status}: {e.body}")
     save_rows(rows)
+    if rejected:
+        raise OrderRejected()
 
 
 def arm_fills(arm: str, day: dt.date) -> dict:
@@ -563,12 +599,16 @@ def cmd_close(args) -> None:
     # 1. Cancel every open tagged order.
     for o in open_tagged_orders():
         log(f"cancel {o['client_order_id']} ({o['side']} {o['qty']} {o['symbol']} status {o['status']})")
+        summary("did", f"cancel {o['client_order_id']}")
         if not args.dry_run:
             cancel_order(o["id"])
             wait_terminal(o["id"])
 
     # 2. Sell what each arm still holds, using each arm's own quantity.
-    for r in [r for r in rows if r["date"] == day.isoformat() and r.get("symbol")]:
+    todays = [r for r in rows if r["date"] == day.isoformat() and r.get("symbol")]
+    if not todays:
+        summary("did", f"close: no trades recorded for {day}")
+    for r in todays:
         arm = r["arm"]
         f = arm_fills(arm, day)
         bq, bp = filled(f["buy"])
@@ -588,9 +628,11 @@ def cmd_close(args) -> None:
                 o = wait_terminal(o["id"], 60)
                 if o["status"] != "filled":
                     add_note(r, f"close order {o['status']}, filled {o.get('filled_qty')}/{left}")
+                    summary("errors", f"{arm} close order {o['status']}, filled {o.get('filled_qty')}/{left}")
             except ApiError as e:
-                add_note(r, f"close rejected: {e.body}")
-                log(f"{arm}: close rejected: {e.body}")
+                add_note(r, f"close rejected HTTP {e.status}: {e.body}")
+                log(f"{arm}: close REJECTED HTTP {e.status}: {e.body}")
+                summary("errors", f"{arm} close rejected HTTP {e.status}: {e.body}")
         f = arm_fills(arm, day)
         cq, cp = filled(f["close"])
         if cp is not None:
@@ -602,6 +644,9 @@ def cmd_close(args) -> None:
         still = bq - hq - cq
         if still > 0:
             add_note(r, f"WARNING {still} contracts still open after close")
+            summary("errors", f"{arm}: {still} contracts still open after close")
+        summary("did", f"{arm} close: sold {cq} @ {cp}, half-exit {hq} @ {hp}")
+        summary("fills", f"{arm} proceeds ${r['proceeds']} profit ${r.get('profit')}")
         log(f"{arm}: half {hq}@{hp} close {cq}@{cp} proceeds ${r['proceeds']} profit ${r.get('profit')}")
     save_rows(rows)
 
@@ -641,7 +686,7 @@ def main(argv=None) -> int:
     c = sub.add_parser("check")
     c.add_argument("--date", help="YYYY-MM-DD (default today ET)")
     cl = sub.add_parser("close")
-    cl.add_argument("--force-time", action="store_true", help="allow closing before 3:30 ET")
+    cl.add_argument("--force-time", action="store_true", help="allow closing before 3:15 ET")
     sub.add_parser("report")
     for sp in sub.choices.values():  # accept --dry-run after the command too
         sp.add_argument("--dry-run", action="store_true", default=argparse.SUPPRESS)
@@ -653,9 +698,18 @@ def main(argv=None) -> int:
         {"status": cmd_status, "buy": cmd_buy, "check": cmd_check,
          "close": cmd_close, "report": cmd_report}[args.cmd](args)
     except AuthStop as e:
-        print(f"STOP: HTTP {e.status} from {e.method} {e.url}\n{e.body}", file=sys.stderr)
-        return 2
-    return 0
+        msg = f"STOP: HTTP {e.status} from {e.method} {e.url}\n{e.body}"
+        print(msg, file=sys.stderr)
+        summary("errors", msg.replace("\n", " "))
+        code = 2
+    except OrderRejected:
+        print("STOP: order rejected (exact response logged above). Not switching instruments.", file=sys.stderr)
+        code = 3
+    else:
+        code = 0
+    if args.cmd in ("buy", "close"):
+        print_summary()
+    return code
 
 
 if __name__ == "__main__":
