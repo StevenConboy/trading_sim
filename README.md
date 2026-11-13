@@ -8,7 +8,7 @@ flip). Paper only. Rules are in [RULES.md](RULES.md); results go to `trades.csv`
 python3 trade.py status
 python3 trade.py buy --direction put --reason "one line"   # 9:45 a.m. ET
 python3 trade.py check
-python3 trade.py close                                      # 3:30 p.m. ET
+python3 trade.py close                                      # 3:15 p.m. ET
 python3 trade.py report
 ```
 
