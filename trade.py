@@ -330,7 +330,7 @@ def save_rows(rows: list[dict]) -> None:
         return
     tmp = CSV_PATH + ".tmp"
     with open(tmp, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
+        w = csv.DictWriter(f, fieldnames=CSV_COLUMNS, lineterminator="\n")
         w.writeheader()
         for r in rows:
             w.writerow({k: r.get(k, "") for k in CSV_COLUMNS})
