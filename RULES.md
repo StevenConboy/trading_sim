@@ -57,3 +57,6 @@ Paper trading only. Never live.
   both arms hold the same contract, their fills and sales stay separate.
 - Orders are tagged with client_order_id `claude-YYYYMMDD-<step>` and
   `coin-YYYYMMDD-<step>`.
+- `check` and `close` rebuild any of the day's rows that are missing from
+  `trades.csv` out of the arm's tagged buy order on Alpaca. That way a failed
+  push from the morning run can't stop the close from selling.

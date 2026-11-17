@@ -563,11 +563,37 @@ def filled(o: dict | None) -> tuple[int, Decimal | None]:
     return q, (D(o["filled_avg_price"]) if q and o.get("filled_avg_price") else None)
 
 
+def rows_for_day(rows: list[dict], day: dt.date) -> list[dict]:
+    """Today's rows, rebuilt from Alpaca's tagged buy orders when trades.csv lacks them.
+
+    The buy and close usually run in different sessions, so trades.csv can be
+    missing today's rows (for example if the morning push failed). Alpaca's
+    client_order_ids are the source of truth for what each arm holds.
+    """
+    for arm in ARMS:
+        if any(r["date"] == day.isoformat() and r["arm"] == arm and r.get("symbol") for r in rows):
+            continue
+        o = order_by_cid(cid_for(arm, day, "buy"))
+        q, p = filled(o)
+        if not o or not q:
+            continue
+        sym = o["symbol"]
+        upsert(rows, {
+            "date": day.isoformat(), "arm": arm,
+            "direction": "call" if sym[-9] == "C" else "put",
+            "symbol": sym, "strike": str(D(sym[-8:]) / 1000), "contracts": str(q),
+            "entry_price": str(p), "cost": money(q * p * MULTIPLIER),
+            "notes": "row rebuilt from Alpaca orders (missing from trades.csv)",
+        })
+        log(f"{arm}: rebuilt {day} row from Alpaca order {o['client_order_id']}")
+    return [r for r in rows if r["date"] == day.isoformat() and r.get("symbol")]
+
+
 def cmd_check(args) -> None:
     require_paper()
     day = dt.date.fromisoformat(args.date) if args.date else now_et().date()
     rows = load_rows()
-    todays = [r for r in rows if r["date"] == day.isoformat() and r.get("symbol")]
+    todays = rows_for_day(rows, day)
     if not todays:
         print(f"No trades recorded for {day}.")
         return
@@ -605,7 +631,7 @@ def cmd_close(args) -> None:
             wait_terminal(o["id"])
 
     # 2. Sell what each arm still holds, using each arm's own quantity.
-    todays = [r for r in rows if r["date"] == day.isoformat() and r.get("symbol")]
+    todays = rows_for_day(rows, day)
     if not todays:
         summary("did", f"close: no trades recorded for {day}")
     for r in todays:
