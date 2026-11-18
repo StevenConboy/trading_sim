@@ -49,6 +49,7 @@ TARGET_ASK = Decimal("0.10")     # pick the strike whose ask is closest to this
 MULTIPLIER = 100
 FILL_WAIT_SECONDS = 120          # cancel the entry if not filled within 2 minutes
 HALF_EXIT_MULT = Decimal("5")    # half-exit limit = 5x fill price
+CLOSE_MIN_PRICE = Decimal("0.01")  # close limit when there is no bid
 FEED = "indicative"              # "opra" returns 403 on this account (no OPRA agreement)
 ARMS = ("claude", "coin")
 ET = ZoneInfo("America/New_York")
@@ -132,6 +133,19 @@ def check_host(url: str) -> None:
         raise SystemExit(f"REFUSED: {url} is not one of the allowed hosts {sorted(ALLOWED_HOSTS)}")
 
 
+def is_order_rejection(method: str, url: str, raw: str) -> bool:
+    """Alpaca also answers 403 when it rejects an order (e.g. code 40310000,
+    "no available quote ... reenter with a limit", or not enough buying power).
+    Those carry a numeric "code" in the JSON body and are order rejections,
+    not auth failures. A 403 on an order POST without such a code still stops."""
+    if method != "POST" or urllib.parse.urlsplit(url).path != "/v2/orders":
+        return False
+    try:
+        return isinstance(json.loads(raw).get("code"), int)
+    except (ValueError, AttributeError):
+        return False
+
+
 def http(method: str, url: str, params: dict | None = None, body: dict | None = None):
     check_host(url)
     if DRY_RUN and method != "GET":
@@ -148,6 +162,8 @@ def http(method: str, url: str, params: dict | None = None, body: dict | None = 
             raw = resp.read().decode()
     except urllib.error.HTTPError as e:
         raw = e.read().decode(errors="replace")
+        if e.code == 403 and is_order_rejection(method, url, raw):
+            raise ApiError(method, url, e.code, raw) from None
         if e.code in (401, 403):
             raise AuthStop(method, url, e.code, raw) from None
         raise ApiError(method, url, e.code, raw) from None
@@ -606,6 +622,13 @@ def cmd_check(args) -> None:
         if hq and hp is not None:
             r["half_exit_price"] = str(hp)
         left = bq - hq - cq
+        if bq and left == 0 and r.get("cost"):
+            # Fully sold (e.g. a close sell left working filled later): record it.
+            if cp is not None:
+                r["close_price"] = str(cp)
+            proceeds = D((hq * (hp or 0) + cq * (cp or 0)) * MULTIPLIER)
+            r["proceeds"] = money(proceeds)
+            r["profit"] = money(proceeds - D(r["cost"]))
         q = quotes.get(r["symbol"], {})
         mark = D(q.get("bp") or 0)
         print(f"{r['arm']}: {r['direction']} {r['symbol']} bought {bq}@{bp} | half "
@@ -634,6 +657,7 @@ def cmd_close(args) -> None:
     todays = rows_for_day(rows, day)
     if not todays:
         summary("did", f"close: no trades recorded for {day}")
+    quotes = latest_quotes(sorted({r["symbol"] for r in todays}))
     for r in todays:
         arm = r["arm"]
         f = arm_fills(arm, day)
@@ -646,16 +670,28 @@ def cmd_close(args) -> None:
         if bq == 0:
             continue
         if left > 0:
+            # Limit at the bid, never a market order: Alpaca rejects market
+            # orders on options with no quote, which is common for 0DTE
+            # contracts near zero. With no bid, offer at the minimum tick.
+            bid = D((quotes.get(r["symbol"]) or {}).get("bp") or 0)
+            limit = bid if bid > 0 else CLOSE_MIN_PRICE
             if args.dry_run:
-                print(f"DRY RUN: would sell {left} {r['symbol']} at market ({cid_for(arm, day, 'close')})")
+                print(f"DRY RUN: would sell {left} {r['symbol']} limit {limit} (bid {bid}) "
+                      f"({cid_for(arm, day, 'close')})")
                 continue
             try:
-                o = submit_order(r["symbol"], left, "sell", cid_for(arm, day, "close"))
+                o = submit_order(r["symbol"], left, "sell", cid_for(arm, day, "close"), limit)
                 o = wait_terminal(o["id"], 60)
                 if o["status"] != "filled":
-                    add_note(r, f"close order {o['status']}, filled {o.get('filled_qty')}/{left}")
-                    summary("errors", f"{arm} close order {o['status']}, filled {o.get('filled_qty')}/{left}")
+                    # Leave it working: a resting sell can still fill before
+                    # the session ends. It is a day order, so it ends today.
+                    add_note(r, f"close sell {left} @ {limit} {o['status']} after 60s, "
+                                f"filled {o.get('filled_qty')}/{left}, left working")
+                    summary("errors", f"{arm} close sell @ {limit} {o['status']}, "
+                                      f"filled {o.get('filled_qty')}/{left}, left working")
             except ApiError as e:
+                # A rejected sell is logged and the run moves on to the
+                # other arm, so one arm can never block the other's close.
                 add_note(r, f"close rejected HTTP {e.status}: {e.body}")
                 log(f"{arm}: close REJECTED HTTP {e.status}: {e.body}")
                 summary("errors", f"{arm} close rejected HTTP {e.status}: {e.body}")
