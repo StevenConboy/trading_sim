@@ -5,10 +5,10 @@
 #
 # Dates must come from the official schedules below, nowhere else.
 #
-# TODO: NOT FILLED IN. On 2026-11-18 neither www.bls.gov nor
-# www.federalreserve.gov was reachable from the build session (both hosts are
-# blocked by the environment's network policy), so no dates were copied.
-# Paste the dates (YYYY-MM-DD) for 2026-11-18 .. 2027-12-31 into each list.
+# fed: copied 2026-11-18 from the Federal Reserve page below.
+# cpi / jobs: TODO. www.bls.gov refuses automated requests (Akamai "Access
+# Denied", HTTP 403), so these must be pasted by hand from the BLS pages
+# below, as YYYY-MM-DD for 2026-11-18 .. 2027-12-31.
 # Until a list has dates, the bot logs "calendar.yaml: no <kind> dates" and
 # simply never trades that event type.
 
@@ -25,4 +25,16 @@ jobs:
 fed:
   source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
   time: "14:00"
-  dates: []   # TODO: paste the decision day (second day) of each FOMC meeting, rest of 2026 and 2027
+  # Decision day = second day of each two-day meeting. * = with Summary of
+  # Economic Projections. The Fed marks each date tentative until confirmed at
+  # the meeting before it. 2027 has no December meeting (last is Nov 16-17).
+  dates:
+    - 2026-12-09   # Dec 8-9 *
+    - 2027-01-27   # Jan 26-27
+    - 2027-03-17   # Mar 16-17
+    - 2027-04-28   # Apr 27-28
+    - 2027-06-09   # Jun 8-9
+    - 2027-07-28   # Jul 27-28
+    - 2027-09-15   # Sep 14-15
+    - 2027-10-27   # Oct 26-27
+    - 2027-11-17   # Nov 16-17

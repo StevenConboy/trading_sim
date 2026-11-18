@@ -1,0 +1,74 @@
+{
+ "source": "https://api.nasdaq.com/api/calendar/earnings",
+ "fetched_at": "2026-11-18T21:35:09+00:00",
+ "from": "2026-11-18",
+ "to": "2026-12-09",
+ "events": [
+  {
+   "ticker": "PANW",
+   "date": "2026-11-18",
+   "when": "amc",
+   "raw_time": "time-after-hours"
+  },
+  {
+   "ticker": "TGT",
+   "date": "2026-11-18",
+   "when": "bmo",
+   "raw_time": "time-pre-market"
+  },
+  {
+   "ticker": "WMT",
+   "date": "2026-11-19",
+   "when": "bmo",
+   "raw_time": "time-pre-market"
+  },
+  {
+   "ticker": "DELL",
+   "date": "2026-11-24",
+   "when": "amc",
+   "raw_time": "time-after-hours"
+  },
+  {
+   "ticker": "CRWD",
+   "date": "2026-12-01",
+   "when": "amc",
+   "raw_time": "time-after-hours"
+  },
+  {
+   "ticker": "MRVL",
+   "date": "2026-12-01",
+   "when": "amc",
+   "raw_time": "time-after-hours"
+  },
+  {
+   "ticker": "CRM",
+   "date": "2026-12-02",
+   "when": "amc",
+   "raw_time": "time-after-hours"
+  },
+  {
+   "ticker": "SNOW",
+   "date": "2026-12-02",
+   "when": "amc",
+   "raw_time": "time-after-hours"
+  },
+  {
+   "ticker": "AVGO",
+   "date": "2026-12-09",
+   "when": "amc",
+   "raw_time": "time-after-hours"
+  },
+  {
+   "ticker": "ORCL",
+   "date": "2026-12-09",
+   "when": "unknown",
+   "raw_time": "time-not-supplied"
+  },
+  {
+   "ticker": "ADBE",
+   "date": "2026-12-09",
+   "when": "amc",
+   "raw_time": "time-after-hours"
+  }
+ ]
+}
