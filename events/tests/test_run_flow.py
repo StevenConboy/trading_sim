@@ -268,3 +268,21 @@ def test_earnings_source_down_still_trades_macro(fake, monkeypatch):
     go(monkeypatch, "2026-12-09T15:16", "buy")
     assert fake.orders and fake.orders[0][0].startswith("SPY")
     assert any("earnings refresh failed" in x["msg"] for x in ledger()["log"])
+
+
+def test_test_trade_round_trip_leaves_ledger_alone(fake, monkeypatch):
+    fake.bid = {}
+    assert go(monkeypatch, "2026-12-09T10:30", "test-trade") == 0
+    buy, sell = fake.orders
+    assert buy[1:3] == (1, "buy") and buy[4].startswith("evt-test-20261209-1030-buy")
+    assert sell[1:3] == (1, "sell") and sell[3] == D("0.50")
+    assert fake.held == {}
+    L = ledger()
+    assert L["trades"] == [] and L["chains"]["claude"]["balance"] == "100.00"
+
+
+def test_test_trade_refuses_with_open_position(fake, monkeypatch):
+    fake.held = {"SPY261209C00610000": 1}
+    with pytest.raises(SystemExit):
+        go(monkeypatch, "2026-12-09T10:30", "test-trade")
+    assert fake.orders == []

@@ -540,6 +540,57 @@ def cmd_status_ledger_only(run: Run) -> None:
         print(f"{chain}: balance ${s['balance']} step {s['step']} restarts {s['restarts']} busts {s['busts']}")
 
 
+def cmd_test_trade(run: Run) -> None:
+    """Plumbing test: buy 1 cheap SPY option at the ask, then sell it at the bid.
+
+    Real paper orders (tagged evt-test-...), but outside both chains: the
+    ledger is not touched. Run while the market is open.
+    """
+    alpaca.require_paper()
+    cal = run.market()
+    if not cal.is_trading_day(run.today) or not (dt.time(9, 35) <= run.now.time() <= dt.time(15, 0)):
+        if not (run.dry or run.args.force_time):
+            raise SystemExit("test-trade runs 9:35 a.m.-3:00 p.m. ET on a market day (or use --force-time)")
+    held = alpaca_option_positions()
+    if held:
+        raise SystemExit(f"REFUSED: option positions already open {held}; test-trade needs a flat account")
+    spy = run.cfg["macro_ticker"]
+    exp = alpaca.expiries(spy, run.today)[0]
+    quotes = [q for q in alpaca.option_chain(spy, exp)
+              if q.kind == "call" and q.bid > 0 and Decimal("0.05") <= q.ask <= Decimal("0.50")]
+    if not quotes:
+        raise SystemExit(f"no {spy} {exp} call quoted between $0.05 and $0.50")
+    q = min(quotes, key=lambda x: (abs(x.ask - Decimal("0.20")), x.ask - x.bid))
+    wait = run.cfg["fill_wait_seconds"]
+    tag = f"evt-test-{run.now:%Y%m%d-%H%M}"
+    run.log(f"TEST: {q.symbol} bid {q.bid} ask {q.ask}; buy 1 at the ask, then sell at the bid")
+    if run.dry:
+        run.log(f"DRY RUN: would send {tag}-buy: buy 1 {q.symbol} limit {q.ask}, then {tag}-sell at the bid")
+        return
+    bq, bp, o = alpaca.limit_and_wait(q.symbol, 1, "buy", q.ask, f"{tag}-buy", wait, run.log)
+    run.summary.append(f"test buy {q.symbol} limit {q.ask}: status {o['status']}, filled {bq} @ {bp}")
+    if not bq:
+        run.summary.append("no buy fill: order cancelled after the wait (the cancel path works)")
+        return
+    sold = 0
+    for attempt in ("sell", "sell-r"):
+        bid, ask = alpaca.quote(q.symbol)
+        if bid <= 0:
+            run.summary.append(f"no bid for {q.symbol}")
+            break
+        sq, sp, o = alpaca.limit_and_wait(q.symbol, 1, "sell", bid, f"{tag}-{attempt}", wait, run.log)
+        run.summary.append(f"test {attempt} limit {bid}: status {o['status']}, filled {sq} @ {sp}")
+        if sq:
+            sold = 1
+            run.summary.append(f"round trip: bought @ {bp}, sold @ {sp}, P&L ${(sp - bp) * 100:.2f}")
+            break
+    left = alpaca_option_positions()
+    run.summary.append(f"option positions after test: {left or 'none'}")
+    if not sold:
+        run.summary.append(f"WARNING {q.symbol} still held; sell it before tomorrow's runs "
+                           "(the claude chain refuses to buy while it is open)")
+
+
 def cmd_refresh(run: Run) -> None:
     cache = earnings.refresh(run.today, set(settings.watchlist()))
     print(f"{len(cache['events'])} watchlist reports {cache['from']}..{cache['to']}")
@@ -552,11 +603,11 @@ def cmd_refresh(run: Run) -> None:
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
-    for name in ("buy", "sell", "fed", "probe", "status", "report", "refresh-earnings"):
+    for name in ("buy", "sell", "fed", "probe", "status", "report", "refresh-earnings", "test-trade"):
         sp = sub.add_parser(name)
         sp.add_argument("--dry-run", action="store_true", help="send no orders, write no files")
         sp.add_argument("--at", help="pretend it is this ET time, YYYY-MM-DDTHH:MM (dry-run only)")
-        if name in ("buy", "sell", "fed"):
+        if name in ("buy", "sell", "fed", "test-trade"):
             sp.add_argument("--force-time", action="store_true", help="run outside the time window")
         if name in ("buy", "fed"):
             sp.add_argument("--event", help="claude chain: candidate id, ticker or kind to bet on")
@@ -571,7 +622,7 @@ def main(argv=None) -> int:
         p.error("--reason must be one line")
     run = Run(args)
     cmds = {"buy": cmd_buy, "sell": cmd_sell, "fed": cmd_fed, "probe": cmd_probe, "status": cmd_status,
-            "report": cmd_report, "refresh-earnings": cmd_refresh}
+            "report": cmd_report, "refresh-earnings": cmd_refresh, "test-trade": cmd_test_trade}
     code = 0
     try:
         cmds[args.cmd](run)
@@ -586,7 +637,7 @@ def main(argv=None) -> int:
     finally:
         # Always save what was booked, even if a later step crashed: a real fill
         # must never be lost from the ledger.
-        if args.cmd in ("buy", "sell", "fed"):
+        if args.cmd in ("buy", "sell", "fed", "test-trade"):
             run.save()
             print("\nSUMMARY\n" + ("\n".join(run.summary) or "nothing to do"))
     return code
