@@ -1,0 +1,50 @@
+# Earnings watchlist: ~30 large US companies with busy options markets and a
+# history of big moves on earnings.
+#
+# Why these:
+# - Mega-cap tech (AAPL MSFT NVDA AMZN GOOGL META AVGO ORCL): the deepest
+#   single-stock option markets, penny-wide strikes and daily volume in the
+#   hundreds of thousands of contracts, so the ask is fair and fills are
+#   likely. NVDA, META, AMZN and GOOGL have regularly moved 5-15% on reports.
+# - High-volatility tech (TSLA NFLX AMD MU PLTR COIN CRWD PANW SNOW MRVL
+#   DELL INTC): routinely price 6-12%+ earnings moves and often beat them,
+#   which is what a far out-of-the-money lottery strike needs.
+# - Software / internet (CRM ADBE UBER ABNB): large caps whose reports often
+#   bring 7-10%+ gaps and that have liquid weekly options.
+# - Consumer and industrial names (DIS NKE BA WMT COST TGT JPM): lower
+#   volatility but huge, liquid option chains; they spread report dates
+#   across the season (banks lead it off, retailers close it out) so the bot
+#   has events in the quieter weeks too.
+# Excluded: non-US listings, names with thin or wide-spread chains, ETFs.
+tickers:
+  - AAPL
+  - MSFT
+  - NVDA
+  - AMZN
+  - GOOGL
+  - META
+  - AVGO
+  - ORCL
+  - TSLA
+  - NFLX
+  - AMD
+  - MU
+  - PLTR
+  - COIN
+  - CRWD
+  - PANW
+  - SNOW
+  - MRVL
+  - DELL
+  - INTC
+  - CRM
+  - ADBE
+  - UBER
+  - ABNB
+  - DIS
+  - NKE
+  - BA
+  - WMT
+  - COST
+  - TGT
+  - JPM

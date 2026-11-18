@@ -1,0 +1,23 @@
+{
+ "version": 1,
+ "chains": {
+  "claude": {
+   "balance": "100.00",
+   "step": 0,
+   "restarts": 0,
+   "busts": 0,
+   "targets_hit": 0,
+   "open": null
+  },
+  "shadow": {
+   "balance": "100.00",
+   "step": 0,
+   "restarts": 0,
+   "busts": 0,
+   "targets_hit": 0,
+   "open": null
+  }
+ },
+ "trades": [],
+ "log": []
+}

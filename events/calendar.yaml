@@ -1,0 +1,28 @@
+# Macro event calendar. All times ET.
+#   cpi  : Consumer Price Index release, 8:30 a.m.
+#   jobs : The Employment Situation (jobs report), 8:30 a.m.
+#   fed  : FOMC decision day (statement at 2:00 p.m.) = the LAST day of each meeting
+#
+# Dates must come from the official schedules below, nowhere else.
+#
+# TODO: NOT FILLED IN. On 2026-11-18 neither www.bls.gov nor
+# www.federalreserve.gov was reachable from the build session (both hosts are
+# blocked by the environment's network policy), so no dates were copied.
+# Paste the dates (YYYY-MM-DD) for 2026-11-18 .. 2027-12-31 into each list.
+# Until a list has dates, the bot logs "calendar.yaml: no <kind> dates" and
+# simply never trades that event type.
+
+cpi:
+  source: https://www.bls.gov/schedule/news_release/cpi.htm   # 2027: https://www.bls.gov/schedule/2027/home.htm
+  time: "08:30"
+  dates: []   # TODO: paste CPI release dates for the rest of 2026 and all of 2027
+
+jobs:
+  source: https://www.bls.gov/schedule/news_release/empsit.htm   # 2027: https://www.bls.gov/schedule/2027/home.htm
+  time: "08:30"
+  dates: []   # TODO: paste Employment Situation release dates for the rest of 2026 and all of 2027
+
+fed:
+  source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  time: "14:00"
+  dates: []   # TODO: paste the decision day (second day) of each FOMC meeting, rest of 2026 and 2027

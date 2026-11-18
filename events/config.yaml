@@ -1,0 +1,13 @@
+# Event bot settings. Paper trading only.
+start_balance: 100          # each chain starts (and restarts) here, dollars
+target: 600000              # bold-play target, dollars
+win_multiple: 5             # m: assumed typical win multiple in the sizing formula
+slippage: 0.15              # haircut on every fill in the ledger (buys cost 15% more, sells pay 15% less)
+fill_wait_seconds: 120      # cancel an unfilled limit order after this long
+macro_ticker: SPY
+
+# Run windows (ET). A run outside its window refuses to trade unless --force-time.
+windows:
+  buy:  ["15:15", "15:40"]
+  sell: ["09:45", "10:15"]
+  fed:  ["13:45", "13:58"]  # must be in before the 2:00 p.m. statement
