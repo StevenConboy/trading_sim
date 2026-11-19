@@ -563,7 +563,7 @@ def cmd_test_trade(run: Run) -> None:
     held = alpaca_option_positions()
     if held:
         raise SystemExit(f"REFUSED: option positions already open {held}; test-trade needs a flat account")
-    spy = run.cfg["macro_ticker"]
+    spy = (run.args.ticker or run.cfg["macro_ticker"]).upper()
     exp = alpaca.expiries(spy, run.today)[0]
     quotes = [q for q in alpaca.option_chain(spy, exp)
               if q.kind == "call" and q.bid > 0 and Decimal("0.05") <= q.ask <= Decimal("0.50")]
@@ -626,7 +626,7 @@ def main(argv=None) -> int:
             sp.add_argument("--event", help="claude chain: candidate id, ticker or kind to bet on")
             sp.add_argument("--direction", choices=["call", "put"], help="claude chain direction")
             sp.add_argument("--reason", help="one line of reasoning (required with --direction)")
-        if name == "probe":
+        if name in ("probe", "test-trade"):
             sp.add_argument("--ticker", help="watchlist stock to quote (default: first on the list)")
     args = p.parse_args(argv)
     if getattr(args, "direction", None) and not getattr(args, "reason", None):
