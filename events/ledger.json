@@ -19,5 +19,11 @@
   }
  },
  "trades": [],
- "log": []
+ "log": [
+  {
+   "time": "2026-11-19T15:16:56-05:00",
+   "chain": "-",
+   "msg": "buy: no event qualifies tonight / tomorrow morning"
+  }
+ ]
 }
