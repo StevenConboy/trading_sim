@@ -5,6 +5,7 @@ win_multiple: 5             # m: assumed typical win multiple in the sizing form
 slippage: 0.15              # haircut on every fill in the ledger (buys cost 15% more, sells pay 15% less)
 fill_wait_seconds: 120      # cancel an unfilled limit order after this long
 macro_ticker: SPY
+quote_max_age_minutes: 20   # ignore option quotes older than this (the free feed can lag)
 
 # Run windows (ET). A run outside its window refuses to trade unless --force-time.
 windows:

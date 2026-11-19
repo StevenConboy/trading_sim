@@ -62,6 +62,7 @@ class Run:
         self.dry = bool(args.dry_run)
         net.DRY_RUN = self.dry
         self.cfg = settings.config()
+        alpaca.MAX_QUOTE_AGE = dt.timedelta(minutes=self.cfg["quote_max_age_minutes"])
         self.rules: ch.Rules = self.cfg["rules"]
         self.now = self._now(args)
         self.today = self.now.date()
@@ -160,7 +161,7 @@ def price(c: Candidate) -> Priced:
         expiry = exps[0]
     quotes = alpaca.option_chain(c.ticker, expiry)
     if not quotes:
-        raise RuntimeError(f"no quoted {c.ticker} options expiring {expiry}")
+        raise RuntimeError(f"no fresh quotes (<= {alpaca.MAX_QUOTE_AGE}) for {c.ticker} options expiring {expiry}")
     em = expected_move(quotes, spot)
     if em is None:
         raise RuntimeError(f"no ATM call+put pair for {c.ticker} {expiry}")
@@ -291,7 +292,11 @@ def sell(run: Run, chain: str, qty: int, step: str) -> None:
                          "check Alpaca account activity", run.rules)
         run.note(chain, f"{sym} expired unsold; written off at $0")
         return
-    bid, ask = alpaca.quote(sym)
+    try:
+        bid, ask = alpaca.quote(sym)
+    except alpaca.StaleQuote as e:
+        run.note(chain, f"{step}: not sold, {e}; the next run tries again")
+        return
     if chain == "shadow":
         if run.dry:
             run.log(f"[shadow] would book sale of {qty} {sym} @ bid {bid}")
@@ -313,7 +318,11 @@ def sell(run: Run, chain: str, qty: int, step: str) -> None:
         if left <= 0:
             break
         if attempt:
-            bid, ask = alpaca.quote(sym)
+            try:
+                bid, ask = alpaca.quote(sym)
+            except alpaca.StaleQuote as e:
+                run.note(chain, f"{step}: retry skipped, {e}")
+                break
         if bid <= 0:
             run.note(chain, f"{step}: no bid for {sym}; {left} not sold (will retry next run)")
             return
@@ -559,7 +568,7 @@ def cmd_test_trade(run: Run) -> None:
     quotes = [q for q in alpaca.option_chain(spy, exp)
               if q.kind == "call" and q.bid > 0 and Decimal("0.05") <= q.ask <= Decimal("0.50")]
     if not quotes:
-        raise SystemExit(f"no {spy} {exp} call quoted between $0.05 and $0.50")
+        raise SystemExit(f"no {spy} {exp} call with a fresh quote between $0.05 and $0.50")
     q = min(quotes, key=lambda x: (abs(x.ask - Decimal("0.20")), x.ask - x.bid))
     wait = run.cfg["fill_wait_seconds"]
     tag = f"evt-test-{run.now:%Y%m%d-%H%M}"
@@ -574,7 +583,11 @@ def cmd_test_trade(run: Run) -> None:
         return
     sold = 0
     for attempt in ("sell", "sell-r"):
-        bid, ask = alpaca.quote(q.symbol)
+        try:
+            bid, ask = alpaca.quote(q.symbol)
+        except alpaca.StaleQuote as e:
+            run.summary.append(f"stale quote: {e}")
+            continue
         if bid <= 0:
             run.summary.append(f"no bid for {q.symbol}")
             break

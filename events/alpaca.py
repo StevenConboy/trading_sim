@@ -13,7 +13,29 @@ DATA = "https://data.alpaca.markets"
 ALLOWED = frozenset({"paper-api.alpaca.markets", "data.alpaca.markets"})
 OPTION_FEED = "indicative"   # "opra" returned 403 on the lottery-sim account (no OPRA agreement)
 STOCK_FEED = "iex"
+MAX_QUOTE_AGE = dt.timedelta(minutes=20)   # set from config.yaml by run.py
 TERMINAL = {"filled", "canceled", "expired", "rejected", "done_for_day", "replaced"}
+
+
+class StaleQuote(Exception):
+    """The latest quote is older than MAX_QUOTE_AGE (e.g. yesterday's close)."""
+
+
+def parse_ts(t: str) -> dt.datetime:
+    """Alpaca timestamp ('2026-11-18T21:14:59.00163899Z', nanoseconds) -> aware UTC datetime."""
+    t = t.strip().removesuffix("Z")
+    if "." in t:
+        head, frac = t.split(".", 1)
+        t = f"{head}.{frac[:6]}"
+    return dt.datetime.fromisoformat(t).replace(tzinfo=dt.timezone.utc)
+
+
+def is_fresh(t: str | None, now: dt.datetime | None = None, max_age: dt.timedelta | None = None) -> bool:
+    """True if an Alpaca quote timestamp is within max_age of now."""
+    if not t:
+        return False
+    now = now or dt.datetime.now(dt.timezone.utc)
+    return now - parse_ts(t) <= (max_age or MAX_QUOTE_AGE)
 
 
 def get(base: str, path: str, **params):
@@ -93,7 +115,7 @@ def option_chain(underlying: str, expiry: dt.date) -> list[OptionQuote]:
                    expiration_date=expiry.isoformat(), limit=1000, page_token=token)
         for sym, s in (page.get("snapshots") or {}).items():
             q = s.get("latestQuote") or {}
-            if sym not in ok or not q.get("ap"):
+            if sym not in ok or not q.get("ap") or not is_fresh(q.get("t")):
                 continue
             _, exp, kind, strike = parse_occ(sym)
             out.append(OptionQuote(sym, kind, strike, exp, Decimal(str(q.get("bp") or 0)),
@@ -104,8 +126,10 @@ def option_chain(underlying: str, expiry: dt.date) -> list[OptionQuote]:
 
 
 def quote(symbol: str) -> tuple[Decimal, Decimal]:
-    """(bid, ask) for one option contract."""
+    """(bid, ask) for one option contract. Raises StaleQuote if the quote is too old."""
     q = get(DATA, "/v1beta1/options/quotes/latest", symbols=symbol, feed=OPTION_FEED).get("quotes", {}).get(symbol) or {}
+    if not is_fresh(q.get("t")):
+        raise StaleQuote(f"{symbol} latest quote is from {q.get('t')}, older than {MAX_QUOTE_AGE}")
     return Decimal(str(q.get("bp") or 0)), Decimal(str(q.get("ap") or 0))
 
 

@@ -20,3 +20,14 @@ def test_host_allow_list():
         net.request("GET", earnings.URL, alpaca.ALLOWED)
     with pytest.raises(SystemExit, match="REFUSED"):
         net.request("GET", "http://paper-api.alpaca.markets/v2/account", alpaca.ALLOWED)
+
+
+def test_quote_freshness():
+    import datetime as dt
+    now = dt.datetime(2026, 11, 19, 14, 47, tzinfo=dt.timezone.utc)
+    yesterday_close = "2026-11-18T21:14:59.00163899Z"
+    assert alpaca.parse_ts(yesterday_close) == dt.datetime(2026, 11, 18, 21, 14, 59, 1638, tzinfo=dt.timezone.utc)
+    assert not alpaca.is_fresh(yesterday_close, now, dt.timedelta(minutes=20))
+    assert alpaca.is_fresh("2026-11-19T14:30:00Z", now, dt.timedelta(minutes=20))
+    assert not alpaca.is_fresh("2026-11-19T14:26:59Z", now, dt.timedelta(minutes=20))
+    assert not alpaca.is_fresh(None, now)
