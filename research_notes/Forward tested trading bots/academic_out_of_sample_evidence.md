@@ -80,7 +80,7 @@ Published equity anomalies lose roughly a quarter of their paper returns out of 
   - Sources: [CXO Advisory](https://www.cxoadvisory.com/big-ideas/live-performance-of-alternative-beta-products/); [Alpha Architect](https://alphaarchitect.com/looking-at-alternatives-avoid-complexity-and-magical-backtests/).
 - **[LIVE index vs BACKTEST] Huang, Song & Xiang, "The Smart Beta Mirage" (JFQA 59(6): 2515–2546, 2024):**
   - Indexes tracked by smart-beta ETFs earn about **+3% a year market-adjusted "on paper" before the ETF lists, and about −0.5% to −1% a year after**. The working paper reports +2.77% vs −0.44%; the internet appendix reports a CAPM alpha of +2.72% vs −0.63%.
-  - Variation in factor premia, strategic timing and diseconomies of scale do not explain the drop. The authors conclude there is strong evidence of data mining in index construction to attract ETF flows.
+  - The authors examine variation in factor premia, strategic timing and diminishing returns to scale as explanations. They conclude the evidence points strongly to data mining in index construction to attract ETF flows.
   - Sources: [JFQA (open access)](https://cambridge.org/core/journals/journal-of-financial-and-quantitative-analysis/article/smart-beta-mirage/35CA1CEA091A485DDA960BB2D9930BC9); [IDEAS](https://ideas.repec.org/a/cup/jfinqa/v59y2024i6p2515-2546_2.html); [Internet appendix](https://static.cambridge.org/content/id/urn:cambridge.org:id:article:S0022109023000674/resource/name/S0022109023000674sup001.pdf).
 - **[FORWARD-SIM] Wiecki, Campbell, Lent & Stauth, "All that Glitters Is Not Gold" (Quantopian, SSRN 2016):** 888 algorithms with at least 6 months of out-of-sample performance.
   - **Backtest Sharpe had almost no predictive value for out-of-sample Sharpe (R² < 0.025).** Across in-sample metrics, R² was about 0.01–0.02.
@@ -164,7 +164,7 @@ Published equity anomalies lose roughly a quarter of their paper returns out of 
 - **[LIVE execution] Frazzini, Israel & Moskowitz, "Trading Costs" (2018):**
   - Uses about $1.7 trillion of AQR's own live trades from Aug 1998 to Jun 2016, across 21 developed markets.
   - Actual costs were **an order of magnitude smaller than earlier academic estimates**. Average market impact was just under 9 bps; the value-weighted mean was about 15 bps.
-  - Size, value and momentum survive costs at substantial fund sizes. The data come from one large, skilled trader, so they may not generalize.
+  - An earlier 2012 draft (about $1 trillion of trades, 1998–2011) used these cost measures to compute break-even fund sizes for size, value, momentum and short-term reversal strategies. The break-even figures were not retrieved here. The data come from one large, skilled trader, so they may not generalize. [NBER 2012 draft](https://conference.nber.org/conf_papers/f68262/f68262.pdf)
   - Sources: [SSRN](https://papers.ssrn.com/abstract=3229719); [Institutional Investor](https://www.institutionalinvestor.com/article/b19hkzljqkhyw0/AQR-Investor-Worries-Over-Trading-Costs-May-Be-Overblown); [Alpha Architect](https://alphaarchitect.com/the-best-research-paper-ever-written-on-trading-costs/); [Swedroe/ETF.com](https://www.etf.com/sections/index-investor-corner/swedroe-trading-cost-truths).
 - **[POST-SAMPLE PAPER]** Jensen, Kelly & Pedersen find most factor themes replicate in a 93-country dataset, and Ilmanen et al. find premia hold up over a century, though muted. Sources: [JKP](https://research-api.cbs.dk/ws/portalfiles/portal/95651880/theis_ingerslev_jensen_et_al_is_there_a_replication_crisis_in_finance_publishersversion.pdf); [Ilmanen et al.](https://papers.ssrn.com/abstract=3400998)
 
@@ -207,9 +207,9 @@ Published equity anomalies lose roughly a quarter of their paper returns out of 
 ### Inferences
 - **Persisted live:**
   - Trend following has persisted, but it pays like a long-volatility, crisis and inflation payoff. Returns are lumpy (2022, 2026), with multi-year flat or negative stretches (2010s, 2023, 2025).
-  - Market making has persisted, with near-daily profitability for the scale leaders.
+  - Market making has persisted, with near-daily profitability for the scale leaders (shown for Virtu through Feb 2014).
   - Medallion has persisted, but it is capacity-constrained and closed to outsiders.
-  - For a large, low-cost implementer, value and momentum premia have persisted after costs.
+  - For a large, low-cost implementer, value and momentum premia plausibly survive costs: AQR's own live trading costs are about ten times below academic estimates. Typical mutual funds do not capture them.
 - **Decayed or failed live:**
   - Most published anomalies lose about half their paper return, and the average is near zero after costs.
   - Bank risk-premia indices lost 73% of their Sharpe ratio.
@@ -250,7 +250,7 @@ In India, profits accrue overwhelmingly to institutional algorithmic traders: 99
   - Sources: ["The Cross-Section of Speculator Skill" working paper](https://faculty.haas.berkeley.edu/odean/papers/day%20traders/Day%20Trading%20Skill%20110523.pdf); published in the Journal of Financial Markets 18 (2014) ([EconPapers](https://econpapers.repec.org/RePEc:eee:finmar:v:18:y:2014:i:c:p:1-24)).
   - **The aggregate performance of day traders net of fees was negative in every one of the 15 years**, and **more than 75% of day traders quit within two years**. Many persist despite extensive losses. ["Do Day Traders Rationally Learn About Their Ability?"](https://faculty.haas.berkeley.edu/odean/papers/day%20traders/day%20trading%20and%20learning%20110217.pdf)
 - **[LIVE] Brazil, Chague, De-Losso & Giovannetti, "Day Trading for a Living?" (2019/2020):**
-  - Sample: all individuals who began day trading Brazilian equity-index mini-futures in 2013–2015. Bloomberg describes the window as 2013–2017.
+  - Sample: all individuals who began day trading in Brazil's equity futures market in 2013–2015. Bloomberg describes the window as 2013–2017.
   - **97% of those who persisted for more than 300 days lost money.** Only **1.1% earned more than the Brazilian minimum wage**, and only 0.5% earned more than a bank teller's starting salary.
   - Sources: [EconPapers](https://econpapers.repec.org/RePEc:fgv:eesptd:525); [EconPapers WP](https://econpapers.repec.org/paper/spawpaper/2019wpecon47.htm); [Bloomberg](https://www.bloombergquint.com/onweb/day-traders-in-brazil-study-would-ve-done-better-with-9-to-5-job).
   - A 2025 follow-up on the COVID-era surge of retail day traders concludes day trading is "systematically unfavorable" for individuals and a persistent transfer of wealth to financial institutions. [Brazilian Review of Finance](https://periodicos.fgv.br/rbfin/article/view/94291)
